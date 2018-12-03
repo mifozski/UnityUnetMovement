@@ -4,10 +4,8 @@ using Mirror;
 
 // Server-authoritative movement with Client-side prediction and reconciliation
 // Author:gennadiy.shvetsov@gmail.com
-// QoS channels used:
-// channel #0: Reliable Sequenced
-// channel #1: Unreliable Sequenced
 [RequireComponent(typeof(CharacterController))]
+[NetworkSettings(sendInterval = 0.05f)]
 public class NetworkMovement : NetworkBehaviour
 {
     #region Declarations
@@ -235,8 +233,7 @@ public class NetworkMovement : NetworkBehaviour
             {
                 // Listen server/host part
                 // Sending results to other clients(state sync)
-                // if (_dataStep >= GetNetworkSendInterval())
-                if (_dataStep >= .05f)
+                if (_dataStep >= GetNetworkSendInterval())
                 {
                     if (Vector3.Distance(_results.position, lastPosition) > 0f || Quaternion.Angle(_results.rotation, lastRotation) > 0f || _results.crouching != lastCrouch)
                     {
@@ -349,8 +346,7 @@ public class NetworkMovement : NetworkBehaviour
                         _startPosition = _results.position;
                         _startRotation = _results.rotation;
                     }
-                    // _step = 1f / (GetNetworkSendInterval());
-                    _step = 1f / .05f;
+                    _step = 1f / (GetNetworkSendInterval());
                     _results.position = Vector3.Lerp(_startPosition, _resultsList[0].position, _dataStep);
                     _results.rotation = Quaternion.Slerp(_startRotation, _resultsList[0].rotation, _dataStep);
                     _results.mousing = _resultsList[0].mousing;
@@ -575,8 +571,8 @@ public class NetworkMovement : NetworkBehaviour
 
         if (mouseSteer)
         {
-            inputs.yaw = Input.GetAxis("Mouse X") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
-            inputs.pitch = -Input.GetAxis("Mouse Y") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
+            inputs.pitch = Input.GetAxis("Mouse X") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
+            inputs.yaw = -Input.GetAxis("Mouse Y") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
         }
         else
         {
