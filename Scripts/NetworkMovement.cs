@@ -575,8 +575,8 @@ public class NetworkMovement : NetworkBehaviour
 
         if (mouseSteer)
         {
-            inputs.pitch = Input.GetAxis("Mouse X") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
-            inputs.yaw = -Input.GetAxis("Mouse Y") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
+            inputs.yaw = Input.GetAxis("Mouse X") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
+            inputs.pitch = -Input.GetAxis("Mouse Y") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
         }
         else
         {
