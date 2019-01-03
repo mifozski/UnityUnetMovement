@@ -96,34 +96,6 @@ public class NetworkMovement : NetworkBehaviour
         public bool sprinting;
         public bool crouching;
         public float timeStamp;
-
-        //public void Read(Stream stream)
-        //{
-        //    using (PooledBitReader reader = PooledBitReader.Get(stream))
-        //    {
-        //        position = reader.ReadVector3Packed();
-        //        pitch = reader.ReadUInt16Packed();
-        //        yaw = reader.ReadUInt16Packed();
-        //        mousing = reader.ReadBool();
-        //        sprinting = reader.ReadBool();
-        //        crouching = reader.ReadBool();
-        //        timeStamp = reader.ReadSinglePacked();
-        //    }
-        //}
-
-        //public void Write(Stream stream)
-        //{
-        //    using (PooledBitWriter writer = PooledBitWriter.Get(stream))
-        //    {
-        //        writer.WriteVector3Packed(position);
-        //        writer.WriteUInt16Packed(pitch);
-        //        writer.WriteUInt16Packed(yaw);
-        //        writer.WriteBool(mousing);
-        //        writer.WriteBool(sprinting);
-        //        writer.WriteBool(crouching);
-        //        writer.WriteSinglePacked(timeStamp);
-        //    }
-        //}
     }
 
     // Synced from server to all clients
@@ -193,15 +165,6 @@ public class NetworkMovement : NetworkBehaviour
             GetInputs(ref _inputs);
         }
     }
-
-    //private void OnDrawGizmos()
-    //{
-    //	float radius = characterController.radius;
-    //	float height = characterController.height;
-    //	Vector3 origin = transform.position + new Vector3(0, (-height * 0.5f) + radius, 0);
-    //	Gizmos.color = Color.black;
-    //	Gizmos.DrawSphere(origin, radius);
-    //}
 
     private bool Grounded()
     {
