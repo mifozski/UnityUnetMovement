@@ -154,11 +154,12 @@ public class NetworkMovement : NetworkBehaviour
     {
         if (characterController == null) return true;
 
-        Vector3 origin = transform.position + new Vector3(0, -characterController.height * 0.5f, 0);
+        Vector3 origin = transform.position + new Vector3(0, -characterController.height * 0.5f + characterController.radius, 0);
         Vector3 direction = Vector3.down;
         float maxDistance = characterController.skinWidth + .01f;
         Debug.DrawRay(origin, new Vector3(0, -characterController.skinWidth, 0), Color.red);
-        return Physics.Raycast(origin, direction, maxDistance, ~layerMask);
+        //return Physics.Raycast(origin, direction, maxDistance, ~layerMask);
+        return Physics.SphereCast(new Ray(origin, direction), characterController.radius, maxDistance, ~layerMask);
     }
 
     void FixedUpdate()
