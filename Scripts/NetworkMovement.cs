@@ -4,35 +4,29 @@ using Mirror;
 
 // Server-authoritative movement with Client-side prediction and reconciliation
 // Author:gennadiy.shvetsov@gmail.com
+//[NetworkSettings(sendInterval = 0.05f)]
 [RequireComponent(typeof(CharacterController))]
-[NetworkSettings(sendInterval = 0.05f)]
 public class NetworkMovement : NetworkBehaviour
 {
     #region Declarations
 
     CharacterController characterController;
 
-    // These are just for visual debugging via inspector
-    [SerializeField]
-    private bool _isServer;
-    [SerializeField]
-    private bool _isLocalPlayer;
-    [SerializeField]
-    private bool _isClient;
-    [SerializeField]
-    private bool _hasAuthority;
-
     [SerializeField]
     private bool _isGrounded;
 
+    [SerializeField]
+    private LayerMask layerMask;
 
     public float verticalMouseLookLimit = 170f;
+
+    [SerializeField]
     private float _verticalSpeed = 0f;
 
     public float _snapDistance = 1f;
 
     // this is a local client setting that will be sent with inputs and relayed with results
-    public bool mouseSteer = true;
+    public bool mouseSteer = false;
 
     public float groundSpeed = 30f;
     public float rotateSpeed = 200f;
@@ -41,7 +35,7 @@ public class NetworkMovement : NetworkBehaviour
     [SerializeField]
     private bool _jump = false;
 
-    public float _jumpHeight = 10f;
+    public float _jumpHeight = 5f;
 
     // This struct would be used to collect player inputs
     [System.Serializable]
@@ -134,11 +128,6 @@ public class NetworkMovement : NetworkBehaviour
 
     #region Monobehaviors
 
-    private void Awake()
-    {
-        Debug.LogFormat("Awake {0}", transform.position);
-    }
-
     void Start()
     {
         Debug.LogFormat("Start {0}", transform.position);
@@ -146,16 +135,11 @@ public class NetworkMovement : NetworkBehaviour
         _results.position = transform.position;
         _results.rotation = transform.rotation;
         characterController = GetComponent<CharacterController>();
+        layerMask = 1 << gameObject.layer;
     }
 
     void Update()
     {
-        // These are just for visual debugging via inspector
-        _isServer = isServer;
-        _isLocalPlayer = isLocalPlayer;
-        _isClient = isClient;
-        _hasAuthority = hasAuthority;
-
         if (isLocalPlayer)
         {
             if (Input.GetButtonUp("SteerMode"))
@@ -172,8 +156,9 @@ public class NetworkMovement : NetworkBehaviour
 
         Vector3 origin = transform.position + new Vector3(0, -characterController.height * 0.5f, 0);
         Vector3 direction = Vector3.down;
-        float maxDistance = 0.1f;
-        return Physics.Raycast(origin, direction, maxDistance);
+        float maxDistance = characterController.skinWidth + .01f;
+        Debug.DrawRay(origin, new Vector3(0, -characterController.skinWidth, 0), Color.red);
+        return Physics.Raycast(origin, direction, maxDistance, ~layerMask);
     }
 
     void FixedUpdate()
@@ -196,7 +181,7 @@ public class NetworkMovement : NetworkBehaviour
             {
                 // Listen server/host part
                 // Sending results to other clients(state sync)
-                if (_dataStep >= GetNetworkSendInterval())
+                if (_dataStep >= syncInterval)
                 {
                     if (Vector3.Distance(_results.position, lastPosition) > 0f || Quaternion.Angle(_results.rotation, lastRotation) > 0f || _results.crouching != lastCrouch)
                     {
@@ -270,7 +255,7 @@ public class NetworkMovement : NetworkBehaviour
                 _results.position = Move(inputs, _results);
 
                 // Sending results to other clients(state sync)
-                if (_dataStep >= GetNetworkSendInterval())
+                if (_dataStep >= syncInterval)
                 {
                     if (Vector3.Distance(_results.position, lastPosition) > 0f || Quaternion.Angle(_results.rotation, lastRotation) > 0f || _results.crouching != lastCrouch)
                     {
@@ -309,7 +294,7 @@ public class NetworkMovement : NetworkBehaviour
                         _startPosition = _results.position;
                         _startRotation = _results.rotation;
                     }
-                    _step = 1f / (GetNetworkSendInterval());
+                    _step = 1f / syncInterval;
                     _results.position = Vector3.Lerp(_startPosition, _resultsList[0].position, _dataStep);
                     _results.rotation = Quaternion.Slerp(_startRotation, _resultsList[0].rotation, _dataStep);
                     _results.mousing = _resultsList[0].mousing;
@@ -351,11 +336,11 @@ public class NetworkMovement : NetworkBehaviour
     #region ClientCallback
 
     // Updating Clients with server states
-    [ClientCallback]
+    [Client]
     void RecieveResults(SyncResults syncResults)
     {
         if (!isClient) return;
-        Debug.Log("RecieveResults");
+        //Debug.Log("RecieveResults");
 
         // Converting values back
         rcvdResults.rotation = Quaternion.Euler((float)syncResults.pitch / 182, (float)syncResults.yaw / 182, 0);
@@ -498,7 +483,7 @@ public class NetworkMovement : NetworkBehaviour
     [Command]
     void Cmd_MovementInputs(sbyte forward, sbyte sides, sbyte vertical, bool sprint, bool crouch, float timeStamp)
     {
-        Debug.Log("Cmd_MovementInputs");
+        //Debug.Log("Cmd_MovementInputs");
         if (isServer && !isLocalPlayer)
         {
             Inputs inputs;
@@ -534,8 +519,8 @@ public class NetworkMovement : NetworkBehaviour
 
         if (mouseSteer)
         {
-            inputs.pitch = Input.GetAxis("Mouse X") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
-            inputs.yaw = -Input.GetAxis("Mouse Y") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
+            inputs.pitch = Input.GetAxis("Mouse Y") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
+            inputs.yaw = -Input.GetAxis("Mouse X") * mouseSensitivity * Time.fixedDeltaTime / Time.deltaTime;
         }
         else
         {
@@ -555,13 +540,13 @@ public class NetworkMovement : NetworkBehaviour
 
         if (_jump)
         {
-            verticalTarget = 1;
+            verticalTarget = _jumpHeight;
 
             if (inputs.vertical >= 0.9f)
                 _jump = false;
         }
 
-        inputs.vertical = Mathf.Lerp(inputs.vertical, verticalTarget, 10f * Time.deltaTime);
+        inputs.vertical = Mathf.Lerp(inputs.vertical, verticalTarget, _jumpHeight * Time.deltaTime);
     }
 
     public virtual void UpdatePosition(Vector3 newPosition)
@@ -586,6 +571,15 @@ public class NetworkMovement : NetworkBehaviour
     public virtual Vector3 Move(Inputs inputs, Results current)
     {
         transform.position = current.position;
+
+        if (inputs.vertical > 0)
+            _verticalSpeed = inputs.vertical * _jumpHeight;
+        else
+            _verticalSpeed = inputs.vertical * Physics.gravity.magnitude;
+
+        if (characterController == null)
+            return transform.position;
+
         float speed = groundSpeed;
         if (current.crouching)
             speed = groundSpeed * .5f;
@@ -593,13 +587,28 @@ public class NetworkMovement : NetworkBehaviour
         if (current.sprinting)
             speed = groundSpeed * 1.6f;
 
-        if (inputs.vertical > 0)
-            _verticalSpeed = inputs.vertical * _jumpHeight;
-        else
-            _verticalSpeed = inputs.vertical * Physics.gravity.magnitude;
+        characterController.Move(transform.TransformDirection((Vector3.ClampMagnitude(new Vector3(inputs.sides, 0, inputs.forward), 1) * speed) + new Vector3(0, _verticalSpeed, 0)) * Time.fixedDeltaTime);
 
-        if (characterController != null) characterController.Move(transform.TransformDirection((Vector3.ClampMagnitude(new Vector3(inputs.sides, 0, inputs.forward), 1) * speed) + new Vector3(0, _verticalSpeed, 0)) * Time.fixedDeltaTime);
         return transform.position;
+
+        #region Experimental_Does_Not_Work_Yet
+
+        //Vector3 moveVec = new Vector3(inputs.sides, 0, inputs.forward);
+        //moveVec = Vector3.ClampMagnitude(moveVec, 1);
+        //moveVec = transform.TransformDirection(moveVec);
+
+        //Vector3 normalizedMoveVec = moveVec.normalized;
+        //moveVec = Vector3.ProjectOnPlane(moveVec, Vector3.up);
+        //normalizedMoveVec = Vector3.ProjectOnPlane(normalizedMoveVec, Vector3.up);
+
+        //moveVec *= 1f / normalizedMoveVec.magnitude;
+        //moveVec *= speed;
+        //moveVec.y += _verticalSpeed;
+        //moveVec *= Time.fixedDeltaTime;
+
+        //characterController.Move(moveVec);
+
+        #endregion
     }
 
     public virtual bool Mouse(Inputs inputs, Results current)
